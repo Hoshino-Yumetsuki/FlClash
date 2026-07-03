@@ -112,6 +112,15 @@ jobs:
                   }
                 },
                 "api_key": [{"current_key": "placeholder"}]
+              },
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000001",
+                  "android_client_info": {
+                    "package_name": "com.follow.clash.dev"
+                  }
+                },
+                "api_key": [{"current_key": "placeholder"}]
               }
             ],
             "configuration_version": "1"
