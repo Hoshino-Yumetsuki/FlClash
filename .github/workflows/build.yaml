@@ -77,13 +77,38 @@ jobs:
           submodules: recursive
 
       - name: Setup Android Signing
-        if: startsWith(matrix.platform,'android')
+        if: ${{ startsWith(matrix.platform, 'android') && secrets.KEYSTORE != '' }}
         run: |
           echo "${{ secrets.KEYSTORE }}" | base64 --decode > android/app/keystore.jks
           echo "${{ secrets.SERVICE_JSON }}" | base64 --decode > android/app/google-services.json
           echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local.properties
           echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/local.properties
           echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local.properties
+
+      - name: Setup Android Dummy Google Services
+        if: ${{ startsWith(matrix.platform, 'android') && secrets.KEYSTORE == '' }}
+        run: |
+          cat > android/app/google-services.json << 'EOF'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "placeholder",
+              "storage_bucket": "placeholder.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.follow.clash"
+                  }
+                },
+                "api_key": [{"current_key": "placeholder"}]
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
 
       - name: Setup Go
         uses: actions/setup-go@v5
