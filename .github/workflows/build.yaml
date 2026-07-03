@@ -38,6 +38,8 @@ jobs:
   build:
     needs: [ test ]
     runs-on: ${{ matrix.os }}
+    env:
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE != '' && '1' || '0' }}
     strategy:
       matrix:
         include:
@@ -77,16 +79,22 @@ jobs:
           submodules: recursive
 
       - name: Setup Android Signing
-        if: ${{ startsWith(matrix.platform, 'android') && secrets.KEYSTORE != '' }}
+        if: ${{ startsWith(matrix.platform, 'android') && env.HAS_KEYSTORE == '1' }}
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE }}
+          SERVICE_JSON: ${{ secrets.SERVICE_JSON }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "${{ secrets.KEYSTORE }}" | base64 --decode > android/app/keystore.jks
-          echo "${{ secrets.SERVICE_JSON }}" | base64 --decode > android/app/google-services.json
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/local.properties
-          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/local.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/local.properties
+          echo "$KEYSTORE" | base64 --decode > android/app/keystore.jks
+          echo "$SERVICE_JSON" | base64 --decode > android/app/google-services.json
+          echo "keyAlias=$KEY_ALIAS" >> android/local.properties
+          echo "storePassword=$STORE_PASSWORD" >> android/local.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/local.properties
 
       - name: Setup Android Dummy Google Services
-        if: ${{ startsWith(matrix.platform, 'android') && secrets.KEYSTORE == '' }}
+        if: ${{ startsWith(matrix.platform, 'android') && env.HAS_KEYSTORE != '1' }}
         run: |
           cat > android/app/google-services.json << 'EOF'
           {
