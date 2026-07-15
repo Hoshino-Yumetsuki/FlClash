@@ -310,6 +310,9 @@ class _AddOrEditRuleDialogState extends State<AddOrEditRuleDialog> {
                   const SizedBox(height: 24),
                   TextFormField(
                     keyboardType: TextInputType.text,
+                    inputFormatters: TextInputLimits.limit(
+                      TextInputLimits.rule,
+                    ),
                     onFieldSubmitted: (_) {
                       _handleSubmit();
                     },
