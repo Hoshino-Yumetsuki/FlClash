@@ -13,5 +13,13 @@ func main() {
 		fmt.Println("Arguments error")
 		os.Exit(1)
 	}
+	if err := refuseDirectSetuidLaunch(); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
+	if err := initSessionAuth(); err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(1)
+	}
 	startServer(args[1])
 }

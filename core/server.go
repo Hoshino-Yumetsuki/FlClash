@@ -97,6 +97,21 @@ func startServer(arg string) {
 			Method: action.Method,
 		}
 
+		if action.Method == authMethod {
+			token, _ := action.Data.(string)
+			if err := authenticateSession(token); err != nil {
+				result.error(err.Error())
+				return
+			}
+			result.success(true)
+			continue
+		}
+
+		if requireSession && !isSessionAuthed() {
+			result.error("unauthenticated")
+			continue
+		}
+
 		go handleAction(action, result)
 	}
 }

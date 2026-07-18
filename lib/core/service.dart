@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:fl_clash/common/common.dart';
 import 'package:fl_clash/core/core.dart';
@@ -9,6 +10,12 @@ import 'package:fl_clash/models/core.dart';
 
 import 'interface.dart';
 import 'transport.dart';
+
+String generateIpcToken() {
+  final random = Random.secure();
+  final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+  return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+}
 
 class CoreService extends CoreHandlerInterface {
   static CoreService? _instance;
@@ -20,6 +27,8 @@ class CoreService extends CoreHandlerInterface {
   final Map<String, Completer> _callbackCompleterMap = {};
 
   Process? _process;
+
+  String? _sessionToken;
 
   factory CoreService() {
     _instance ??= CoreService._internal();
@@ -85,19 +94,39 @@ class CoreService extends CoreHandlerInterface {
     );
   }
 
+  Future<void> _authenticateCore() async {
+    final token = _sessionToken;
+    if (token == null || token.isEmpty) {
+      throw StateError('missing IPC session token');
+    }
+    final ok = await invoke<bool>(method: ActionMethod.auth, data: token);
+    if (ok != true) {
+      throw StateError('core IPC authentication failed');
+    }
+  }
+
   Future<void> start() async {
     if (_process != null) {
       await shutdown(false);
     }
     if (system.isWindows && await system.checkIsAdmin()) {
-      final isSuccess = await request.startCoreByHelper(_transport.address);
-      if (isSuccess) {
+      final helperToken = await request.startCoreByHelper(_transport.address);
+      if (helperToken != null) {
+        _sessionToken = helperToken;
         await _transport.connectionCompleter.future;
+        await _authenticateCore();
         return;
       }
     }
+    _sessionToken = generateIpcToken();
+    final token = _sessionToken!;
     try {
-      _process = await Process.start(appPath.corePath, [_transport.address]);
+      _process = await Process.start(
+        appPath.corePath,
+        [_transport.address],
+        environment: {'FLCLASH_IPC_TOKEN': token},
+        includeParentEnvironment: true,
+      );
     } catch (e) {
       commonPrint.log(
         'Failed to start core process: $e',
@@ -114,6 +143,16 @@ class CoreService extends CoreHandlerInterface {
       }
     });
     await _transport.connectionCompleter.future;
+    try {
+      await _authenticateCore();
+    } catch (e) {
+      commonPrint.log(
+        'Core auth failed: $e',
+        logLevel: LogLevel.error,
+      );
+      await shutdown(false);
+      _handleInvokeCrashEvent();
+    }
   }
 
   @override
@@ -137,6 +176,7 @@ class CoreService extends CoreHandlerInterface {
     _transport.disconnected();
     _process?.kill();
     _process = null;
+    _sessionToken = null;
     _clearCompleter();
     if (isUser) {
       return _shutdownCompleter.future;

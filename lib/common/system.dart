@@ -242,8 +242,11 @@ class Windows {
       return true;
     }
 
+    final authSetup = await helperAuth.prepareElevatedInstallScript();
     final command = [
       '/c',
+      authSetup,
+      '&',
       if (status == WindowsHelperServiceStatus.presence) ...[
         'taskkill',
         '/F',

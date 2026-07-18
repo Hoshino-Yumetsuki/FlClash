@@ -266,6 +266,15 @@ fn io_loop(name: String, sink: StreamSink<Vec<u8>, SseCodec>, gen: u64) {
         return;
     }
 
+    // Restrict Unix socket to the creating user (blocks other local UIDs).
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Err(e) = std::fs::set_permissions(&name, std::fs::Permissions::from_mode(0o600)) {
+            ipc_debug!("[IPC] io_loop[{gen}]: chmod 0600 failed: {e}");
+        }
+    }
+
     ipc_debug!("[IPC] io_loop[{gen}]: listener bound, sending TYPE_READY");
     let _ = sink.add(make_frame(TYPE_READY, &[]));
 

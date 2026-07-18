@@ -144,49 +144,76 @@ class Request {
     return res;
   }
 
+  Future<String?> _helperAuthHeader() async {
+    final secret = await helperAuth.loadOrCreate();
+    if (secret == null || secret.isEmpty) {
+      return null;
+    }
+    return secret;
+  }
+
   Future<bool> pingHelper() async {
-    if (kDebugMode) return true;
     try {
+      final auth = await _helperAuthHeader();
+      if (auth == null) return false;
       final response = await dio
           .get(
             'http://$localhost:$helperPort/ping',
-            options: Options(responseType: ResponseType.plain),
+            options: Options(
+              responseType: ResponseType.plain,
+              headers: {'X-FlClash-Auth': auth},
+            ),
           )
           .timeout(const Duration(milliseconds: 2000));
       if (response.statusCode != HttpStatus.ok) {
         return false;
       }
-      return (response.data as String) == globalState.coreSHA256;
+      return (response.data as String) == 'pong';
     } catch (_) {
       return false;
     }
   }
 
-  Future<bool> startCoreByHelper(String arg) async {
+  /// Starts elevated core via helper. Returns session token from helper, or null.
+  Future<String?> startCoreByHelper(String arg) async {
     try {
+      final auth = await _helperAuthHeader();
+      if (auth == null) return null;
       final response = await dio
           .post(
             'http://$localhost:$helperPort/start',
-            data: json.encode({'path': appPath.corePath, 'arg': arg}),
-            options: Options(responseType: ResponseType.plain),
+            data: json.encode({'arg': arg}),
+            options: Options(
+              responseType: ResponseType.plain,
+              headers: {'X-FlClash-Auth': auth},
+            ),
           )
           .timeout(const Duration(milliseconds: 2000));
       if (response.statusCode != HttpStatus.ok) {
-        return false;
+        return null;
       }
-      final data = response.data as String;
-      return data.isEmpty;
+      final data = (response.data as String).trim();
+      if (data.isEmpty) return null;
+      final map = json.decode(data) as Map<String, dynamic>;
+      final token = map['token'] as String?;
+      if (token == null || token.length < 32) return null;
+      return token;
     } catch (_) {
-      return false;
+      return null;
     }
   }
 
   Future<bool> stopCoreByHelper() async {
     try {
+      final auth = await _helperAuthHeader();
+      if (auth == null) return false;
       final response = await dio
           .post(
             'http://$localhost:$helperPort/stop',
-            options: Options(responseType: ResponseType.plain),
+            options: Options(
+              responseType: ResponseType.plain,
+              headers: {'X-FlClash-Auth': auth},
+            ),
           )
           .timeout(const Duration(milliseconds: 2000));
       if (response.statusCode != HttpStatus.ok) {
@@ -198,6 +225,7 @@ class Request {
       return false;
     }
   }
+
 }
 
 final request = Request();

@@ -88,7 +88,14 @@ func handleShutdown() bool {
 }
 
 func handleValidateConfig(path string) string {
-	buf, err := readFile(path)
+	safePath, err := ensurePathUnderHome(path)
+	if err != nil {
+		return err.Error()
+	}
+	buf, err := readFile(safePath)
+	if err != nil {
+		return err.Error()
+	}
 	_, err = config.UnmarshalRawConfig(buf)
 	if err != nil {
 		return err.Error()
@@ -456,7 +463,11 @@ func handleGetMemory(fn func(value string)) {
 }
 
 func handleGetConfig(path string) (*config.RawConfig, error) {
-	bytes, err := readFile(path)
+	safePath, err := ensurePathUnderHome(path)
+	if err != nil {
+		return nil, err
+	}
+	bytes, err := readFile(safePath)
 	if err != nil {
 		return nil, err
 	}
@@ -483,22 +494,28 @@ func handleUpdateConfig(bytes []byte) string {
 
 func handleDelFile(path string, result ActionResult) {
 	go func() {
-		fileInfo, err := os.Stat(path)
+		safePath, err := ensurePathUnderHome(path)
+		if err != nil {
+			result.error(err.Error())
+			return
+		}
+		fileInfo, err := os.Stat(safePath)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				result.success(err.Error())
+				return
 			}
 			result.success("")
 			return
 		}
 		if fileInfo.IsDir() {
-			err = os.RemoveAll(path)
+			err = os.RemoveAll(safePath)
 			if err != nil {
 				result.success(err.Error())
 				return
 			}
 		} else {
-			err = os.Remove(path)
+			err = os.Remove(safePath)
 			if err != nil {
 				result.success(err.Error())
 				return

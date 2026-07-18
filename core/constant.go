@@ -107,6 +107,7 @@ const (
 	setupConfigMethod              Method = "setupConfig"
 	getConfigMethod                Method = "getConfig"
 	deleteFile                     Method = "deleteFile"
+	authMethod                     Method = "auth"
 )
 
 type Method string

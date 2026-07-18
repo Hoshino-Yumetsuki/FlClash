@@ -129,6 +129,16 @@ Windows helper auth:
 - Release: Core SHA256 is embedded in both the Flutter app and the Rust helper. The app pings the helper and verifies the token matches.
 - Debug: The Rust helper skips token verification when built in debug mode, so `flutter run` works without the SHA256 flow.
 
+**Secure IPC (post LPE fix, see `docs/security/secure-ipc.md`):**
+
+- Helper endpoints require `X-FlClash-Auth` (install secret under `%ProgramData%\FlClash\helper.auth`).
+- Helper ignores client-supplied core path; always launches `FlClashCore.exe` next to the helper.
+- `/start` requires a session `token` injected as `FLCLASH_IPC_TOKEN` for the core process.
+- Desktop core refuses to start without `FLCLASH_IPC_TOKEN` and requires an `auth` handshake before any action.
+- File actions (`deleteFile` / `getConfig` / `validateConfig`) are sandboxed to the app home directory.
+- Unix setuid core refuses direct launch unless the parent process is the FlClash UI.
+- Unix IPC sockets are `chmod 0600` after bind.
+
 `plugins/setup/` is an FFI plugin that exists only as a build harness. It carries no Dart API, only platform build hooks that trigger Go compilation. Windows builds also compile a Rust helper in `services/helper/` through `RustBuilder`.
 
 Build configuration defaults live in `build_tool/lib/src/options.dart` and can be overridden via `build_config.yaml`.
